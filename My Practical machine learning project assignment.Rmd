@@ -1,0 +1,162 @@
+---
+title: "Practical Machine Learning project Assignment"
+author: "Chiagozie Umeano"
+date: "3/29/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## R Markdown
+##INTRODUCTION
+
+This is a project concerned with prediction of the manner in which exercise was done among participants using devices like Jawbone up, Nike FuelBand, and Fitbit. 
+Thes participants were a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks.These type of devices are part of the quantified self movement – a group of  One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+This project uses data fom accelerometers on the belt, forearm, arm, and dumbell of 6 participants. 
+
+##Loading the required libraries
+```{r}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(rattle)
+library(randomForest)
+library(gbm)
+```
+
+##Loading the datasets
+```{r}
+train_url<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+test_url<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+init_org_training_data<-read.csv(url(train_url))
+init_org_testing_data<-read.csv(url(test_url))
+
+dim(init_org_training_data)
+dim(init_org_testing_data)
+```
+
+##Cleaning Data
+1. 
+```{r}
+non_zero_var <- nearZeroVar(init_org_training_data)
+
+org_training_data <-init_org_training_data[,-non_zero_var]
+org_testing_data <- init_org_testing_data[,-non_zero_var]
+
+dim(org_training_data)
+dim(org_testing_data)
+```
+
+2.
+```{r}
+na_val_col <- sapply(org_training_data, function(x) mean(is.na(x))) > 0.95
+
+org_training_data <- org_training_data[,na_val_col == FALSE]
+org_testing_data <- org_testing_data[,na_val_col == FALSE]
+
+dim(org_training_data)
+dim(org_testing_data)
+```
+
+3.
+```{r}
+org_training_data <- org_training_data[,8:59]
+org_testing_data <- org_testing_data[,8:59]
+
+dim(org_training_data)
+dim(org_testing_data)
+```
+
+```{r}
+colnames(org_training_data)
+colnames(org_testing_data)
+```
+
+##Partitioning The Data
+```{r}
+inTrain <- createDataPartition(org_training_data$classe, p=0.6, list=FALSE)
+training <- org_training_data[inTrain,]
+testing <- org_training_data[-inTrain,]
+
+dim(training)
+dim(testing)
+```
+
+#Decision Tree Model
+
+```{r}
+DT_modfit <- train(classe ~ ., data = training,method="rpart")
+```
+
+```{r}
+DT_prediction <- predict(DT_modfit, testing)
+DT_pred_conf <- confusionMatrix(DT_prediction,as.factor(testing$classe))
+
+DT_pred_conf
+```
+
+#The plot
+```{r}
+rpart.plot(DT_modfit$finalModel, roundint=FALSE)
+```
+
+##Random Forest Model
+```{r}
+RF_modfit <- train(classe ~ ., data = training, method = "rf", ntree = 100)
+```
+#Random forest model prediction
+```{r}
+RF_prediction <- predict(RF_modfit, testing)
+RF_pred_conf<-  confusionMatrix(RF_prediction,as.factor(testing$classe))
+
+RF_pred_conf
+```
+
+#The plot
+```{r}
+plot(RF_pred_conf$table, col = RF_pred_conf$byClass, 
+     main = paste("Random Forest - Accuracy Level =",
+                  round(RF_pred_conf$overall['Accuracy'], 4)))
+```
+
+#Gradient Boosting Model
+```{r}
+GBM_modfit <- train(classe ~ ., data = training, method = "gbm", verbose = FALSE)
+GBM_modfit$finalModel
+```
+
+```{r}
+GBM_prediction <- predict(GBM_modfit, testing)
+
+GBM_pred_conf <- confusionMatrix(GBM_prediction,as.factor(testing$classe))
+GBM_pred_conf
+```
+
+#The plot
+```{r}
+plot(GBM_pred_conf$table, col = GBM_pred_conf$byClass, 
+     main = paste("Gradient Boosting - Accuracy Level =",
+                  round(GBM_pred_conf$overall['Accuracy'], 4)))
+```
+
+#Comparing Random Forest and Gradient Boosting Model
+```{r}
+RF_pred_conf$overall
+
+GBM_pred_conf$overall
+```
+
+#Conclusion
+The Random Forest proves more accurate than Gradient Boosting Model.
+So Random Forest is selected for final prediction from org_testing_data.
+
+#Final Prediction
+```{r}
+Final_RF_prediction <- predict(RF_modfit, org_testing_data )
+Final_RF_prediction
+```
